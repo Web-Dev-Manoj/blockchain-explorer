@@ -142,6 +142,7 @@ export class MetricService {
 	   as channel_genesis_hash,c.path as path ,txcount  as c from chaincodes as c inner join channel on c.channel_genesis_hash=channel.channel_genesis_hash and c.network_name=channel.network_name where  c.channel_genesis_hash=$1 and  c.network_name=$2 `,
 			[channel_genesis_hash, network_name]
 		);
+		/* added */ console.log(c);
 		if (c) {
 			c.forEach(
 				(item: {
@@ -204,6 +205,7 @@ export class MetricService {
 				network_name,
 				channel_genesis_hash
 			);
+			/* added */ console.log(txArray);
 			return cb(txArray);
 		} catch (err) {
 			logger.error(err);

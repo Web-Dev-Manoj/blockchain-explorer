@@ -145,18 +145,17 @@ export function dbroutes(router: Router, platform: Platform) {
 			}
 			if (channel_genesis_hash) {
 				const extReq = (req as unknown) as ExtRequest;
-				let data = await dbCrudService
-					.getTxList(
-						extReq.network,
-						channel_genesis_hash,
-						blockNum,
-						txid,
-						from,
-						to,
-						orgs,
-						page,
-						size
-					)
+				let data = await dbCrudService.getTxList(
+					extReq.network,
+					channel_genesis_hash,
+					blockNum,
+					txid,
+					from,
+					to,
+					orgs,
+					page,
+					size
+				);
 				if (data) {
 					return res.send({
 						status: 200,
@@ -253,7 +252,7 @@ export function dbroutes(router: Router, platform: Platform) {
 				req.query.to as string
 			);
 			const { page, size } = req.query;
-			if (channel_genesis_hash ) {
+			if (channel_genesis_hash) {
 				const extReq = (req as unknown) as ExtRequest;
 				let data = await dbCrudService.getBlockAndTxList(
 					extReq.network,
@@ -373,5 +372,65 @@ export function dbroutes(router: Router, platform: Platform) {
 				.then(handleResult(req, res));
 		}
 		return requtil.invalidRequest(req, res);
+	});
+
+	router.post(
+		'/purgeData/blockcount/:channel_genesis_hash',
+		async (req, res) => {
+			const channel_genesis_hash = req.params.channel_genesis_hash;
+			const { noOfBlocks } = req.body; // Assuming to send the number of blocks to purge in the request body
+			if (channel_genesis_hash && !isNaN(noOfBlocks)) {
+				try {
+					const extReq = (req as unknown) as ExtRequest;
+
+					// purge data (remove the oldest N blocks)
+					await dbCrudService.deleteBlock(
+						extReq.network,
+						channel_genesis_hash,
+						noOfBlocks
+					);
+					return res.send({
+						status: 200,
+						message: `Successfully Purged all blocks, Except latest ${noOfBlocks}`
+					});
+				} catch (error) {
+					console.error('Error purging data:', error);
+					return res
+						.status(500)
+						.send({ status: 500, message: 'Internal Server Error' });
+				}
+			} else {
+				return requtil.invalidRequest(req, res);
+			}
+		}
+	);
+
+	router.post('/resetData/:channel_genesis_hash', async (req, res) => {
+		const channel_genesis_hash = req.params.channel_genesis_hash;
+		if (channel_genesis_hash) {
+			try {
+				const extReq = (req as unknown) as ExtRequest;
+				// Resetting the data
+				await dbCrudService.resetPurgeData(extReq.network, channel_genesis_hash);
+				return res.send({
+					status: 200,
+					message: 'Successfully completed resetting all data'
+				});
+			} catch (error) {
+				console.error('Error resetting data:', error);
+				return res
+					.status(500)
+					.send({ status: 500, message: 'Internal Server Error' });
+			}
+		} else {
+			// Respond with a 400 Bad Request if channel_genesis_hash is missing
+			console.error('Channel genesis hash is missing');
+			return res
+				.status(400)
+				.send({
+					status: 400,
+					message: 'Bad Request: Channel genesis hash is missing'
+				});
+		}
 	});
 } // End dbroutes()

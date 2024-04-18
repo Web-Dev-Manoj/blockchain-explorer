@@ -103,17 +103,36 @@ export class CRUDService {
 		let sqlTxList = ` select t.creator_msp_id,t.txhash,t.type,t.chaincodename,t.createdt,channel.name as channelName from transactions as t
        inner join channel on t.channel_genesis_hash=channel.channel_genesis_hash and t.network_name = channel.network_name where  t.blockid >= $1 and t.id >= $2 and
 							t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `;
-		const values = [blockNum, txid, channel_genesis_hash, network_name, from, to, page, size];
+		const values = [
+			blockNum,
+			txid,
+			channel_genesis_hash,
+			network_name,
+			from,
+			to,
+			page,
+			size
+		];
 		if (page == 1) {
 			let sqlTxCount: string;
-			const filterValues = [blockNum, txid, channel_genesis_hash, network_name, from, to];
+			const filterValues = [
+				blockNum,
+				txid,
+				channel_genesis_hash,
+				network_name,
+				from,
+				to
+			];
 			sqlTxCount = ` select count(*) from transactions as t inner join channel on t.channel_genesis_hash=channel.channel_genesis_hash and t.network_name = channel.network_name
-			where t.blockid >= $1 and t.id >= $2 and t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `
+			where t.blockid >= $1 and t.id >= $2 and t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `;
 			if (orgs && orgs.length > 0) {
 				sqlTxCount += ' and t.creator_msp_id = ANY($7)';
 				filterValues.push(orgs);
 			}
-			countOfTxns = await this.sql.getRowsCountBySQlQuery(sqlTxCount, filterValues)
+			countOfTxns = await this.sql.getRowsCountBySQlQuery(
+				sqlTxCount,
+				filterValues
+			);
 		}
 		if (orgs && orgs.length > 0) {
 			sqlTxList += ' and t.creator_msp_id = ANY($9)';
@@ -124,7 +143,7 @@ export class CRUDService {
 		let response = {
 			txnsData: txnsData,
 			noOfpages: Math.ceil(countOfTxns / size)
-		}
+		};
 
 		return response;
 	}
@@ -162,7 +181,7 @@ export class CRUDService {
 			byOrgs = ' and creator_msp_id = ANY($7)';
 		}
 		let sqlBlockTxList;
-		if(orgs == null || orgs.length == 0 ) {
+		if (orgs == null || orgs.length == 0) {
 			sqlBlockTxList = `SELECT a.* FROM  (
 								SELECT (SELECT c.name FROM channel c WHERE c.channel_genesis_hash =$1 AND c.network_name = $2) 
 									as channelname, blocks.blocknum,blocks.txcount ,blocks.datahash ,blocks.blockhash ,blocks.prehash,blocks.createdt, blocks.blksize, (
@@ -188,18 +207,18 @@ export class CRUDService {
 				filterValues.push(orgs);
 				byOrgs = ' and creator_msp_id = ANY($5)';
 			}
-			if(orgs == null || orgs.length == 0 ) {
+			if (orgs == null || orgs.length == 0) {
 				sqlBlockTxCount = `SELECT COUNT(DISTINCT blocks.blocknum) FROM blocks
 										JOIN transactions ON blocks.blocknum = transactions.blockid 
 										WHERE blockid = blocks.blocknum ${byOrgs} AND 
 										blocknum >= 0 AND blocks.channel_genesis_hash = $1 AND blocks.network_name = $2 AND 
-										blocks.createdt between $3 AND $4`
+										blocks.createdt between $3 AND $4`;
 			} else {
 				sqlBlockTxCount = `SELECT COUNT(DISTINCT blocks.blocknum) FROM blocks
 										JOIN transactions ON blocks.blocknum = transactions.blockid 
 										WHERE blockid = blocks.blocknum ${byOrgs}  
 										AND blocks.channel_genesis_hash = $1 and blocks.network_name = $2 AND blocks.createdt between $3 AND $4
-										AND transactions.creator_msp_id IS NOT NULL AND transactions.creator_msp_id != ' ' AND length(creator_msp_id) > 0`
+										AND transactions.creator_msp_id IS NOT NULL AND transactions.creator_msp_id != ' ' AND length(creator_msp_id) > 0`;
 			}
 			countOfBlocks = await this.sql.getRowsCountBySQlQuery(
 				sqlBlockTxCount,
@@ -326,7 +345,12 @@ export class CRUDService {
 			await this.sql.saveRow('transactions', transaction);
 			await this.sql.updateBySql(
 				'update chaincodes set txcount =txcount+1 where channel_genesis_hash=$1 and network_name = $2 and name=$3 and version=$4',
-				[transaction.channel_genesis_hash, network_name, transaction.chaincodename, chaincodeversion]
+				[
+					transaction.channel_genesis_hash,
+					network_name,
+					transaction.chaincodename,
+					chaincodeversion
+				]
 			);
 			await this.sql.updateBySql(
 				'update channel set trans =trans+1 where channel_genesis_hash=$1 and network_name = $2 ',
@@ -511,16 +535,47 @@ export class CRUDService {
 	 * @returns
 	 * @memberof CRUDService
 	 */
+	// async getChannelsInfo(network_name) {
+	// 	const channels = await this.sql.getRowsBySQlNoCondition(
+	// 		` SELECT c.id as id, c.name as channelName, c.blocks as blocks, c.channel_genesis_hash as channel_genesis_hash,
+	// 		c.trans as transactions, c.createdt as createdat, c.channel_hash as channel_hash, MAX(blocks.createdt)
+	// 		as latestDate FROM channel c
+	// 		INNER JOIN blocks ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = blocks.network_name
+	// 		INNER JOIN peer_ref_channel pc ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = pc.network_name
+	// 		WHERE c.network_name = $1
+	// 		GROUP BY c.id, c.name, c.blocks, c.trans, c.createdt, c.channel_hash, c.channel_genesis_hash
+	// 		ORDER BY c.name `,
+	// 		[network_name]
+	// 	);
+	// 	return channels;
+	// }
 	async getChannelsInfo(network_name) {
 		const channels = await this.sql.getRowsBySQlNoCondition(
-			` SELECT c.id as id, c.name as channelName, c.blocks as blocks, c.channel_genesis_hash as channel_genesis_hash,
-			c.trans as transactions, c.createdt as createdat, c.channel_hash as channel_hash, MAX(blocks.createdt) 
-			as latestDate FROM channel c 
-			INNER JOIN blocks ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = blocks.network_name 
-			INNER JOIN peer_ref_channel pc ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = pc.network_name 
-			WHERE c.network_name = $1 
-			GROUP BY c.id, c.name, c.blocks, c.trans, c.createdt, c.channel_hash, c.channel_genesis_hash 
-			ORDER BY c.name `,
+			` SELECT c.id AS id,
+			c.name AS channelName,
+			COALESCE(SUM(b.block_count), 0) AS blocks,
+			COALESCE(SUM(t.transaction_count), 0) AS transactions,
+			c.createdt AS createdat,
+			c.channel_genesis_hash AS channel_genesis_hash,
+			MAX(b.createdt) AS latestDate
+	 FROM channel c
+	 LEFT JOIN (
+		 SELECT channel_genesis_hash,
+				COUNT(*) AS block_count,
+				MAX(createdt) AS createdt
+		 FROM blocks
+		 GROUP BY channel_genesis_hash
+	 ) AS b ON c.channel_genesis_hash = b.channel_genesis_hash
+	 LEFT JOIN (
+		 SELECT channel_genesis_hash,
+				COUNT(*) AS transaction_count
+		 FROM transactions
+		 GROUP BY channel_genesis_hash
+	 ) AS t ON c.channel_genesis_hash = t.channel_genesis_hash
+	 WHERE c.network_name = $1
+	 GROUP BY c.id, c.name, c.createdt, c.channel_genesis_hash
+	 ORDER BY c.name;
+	  `,
 			[network_name]
 		);
 		return channels;
@@ -562,6 +617,245 @@ export class CRUDService {
 
 	/**
 	 *
+	 * Fetch block to value from explorer_audit table.
+	 *
+	 * @param {*} channel_genesis_hash
+	 * @param {*} mode
+	 * @returns
+	 * @memberof CRUDService
+	 */
+	async fetchLastBlockToFromExplorerAudit(
+		mode: string,
+		channel_genesis_hash: string,
+		network_id: string
+	) {
+		let blocktoValue = await this.sql.updateBySql(
+			`SELECT blockto FROM explorer_audit where mode =$1 and channel_genesis_hash=$2 and network_name = $3`,
+			[mode, channel_genesis_hash, network_id]
+		);
+		return blocktoValue[0].blockto;
+	}
+
+	/**
+	 *
+	 * Delete the old data based on block count purge.
+	 *
+	 * @param {*} channel_genesis_hash
+	 * @param {*} blockCount
+	 * @returns
+	 * @memberof CRUDService
+	 */
+	async deleteBlock(
+		network_name: string,
+		channel_genesis_hash: string,
+		blockCount: number
+	) {
+		const count: any = await this.sql.getRowsBySQlCase(
+			' select count(*) as count from blocks  where channel_genesis_hash=$1 and network_name = $2 ',
+			[channel_genesis_hash, network_name]
+		);
+		const rowCount: number = count.count;
+		let rowsToDelete: number = 0;
+		if (rowCount > blockCount) {
+			rowsToDelete = rowCount - blockCount;
+		}
+		if (rowsToDelete > 0) {
+			let blockfrom = await this.sql.updateBySql(
+				`SELECT min(blocknum) as blockfrom FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
+				[channel_genesis_hash, network_name]
+			);
+			let blockto = await this.sql.updateBySql(
+				`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
+				[channel_genesis_hash, network_name]
+			);
+			await this.sql.updateBySql(
+				`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+				[
+					blockfrom[0].blockfrom,
+					blockto[0].blockto - blockCount,
+					channel_genesis_hash,
+					network_name
+				]
+			);
+			await this.sql.updateBySql(
+				`DELETE FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+				[
+					blockfrom[0].blockfrom,
+					blockto[0].blockto - blockCount,
+					channel_genesis_hash,
+					network_name
+				]
+			);
+			await this.explorerTableUpdation(
+				blockfrom[0].blockfrom,
+				blockto[0].blockto - blockCount,
+				'BLOCKCOUNT',
+				channel_genesis_hash,
+				network_name
+			);
+
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 *
+	 * Update the explorer_audit table based on the details of purge.
+	 *
+	 * @param {*} channel_genesis_hash
+	 * @param {*} blockFrom
+	 * @param {*} blockTo
+	 * @param {*} purgeMode
+	 * @returns
+	 * @memberof CRUDService
+	 */
+	async explorerTableUpdation(
+		blockFrom: number,
+		blockTo: number,
+		purgeMode: string,
+		channel_genesis_hash: string,
+		network_name: string
+	) {
+		const updateReponse = await this.sql.updateBySql(
+			`insert into explorer_audit (lastupdated,status,blockfrom,blockto,mode,channel_genesis_hash,network_name) values ($1,$2,$3,$4,$5,$6,$7) on conflict(mode,channel_genesis_hash,network_name) 
+			do update set lastupdated = $1, status = $2, blockfrom = $3, blockto = $4, mode = $5, channel_genesis_hash =$6,network_name= $7 `,
+			[
+				new Date(),
+				'SUCCESS',
+				blockFrom,
+				blockTo,
+				purgeMode,
+				channel_genesis_hash,
+				network_name
+			]
+		);
+		logger.info('Data added to explorer_audit table', updateReponse);
+	}
+
+	async getLatestPurgeMode(channel_genesis_hash: string, network_name: string) {
+		const result = await this.sql.updateBySql(
+			'SELECT mode FROM explorer_audit WHERE channel_genesis_hash = $1 AND network_name = $2 ORDER BY lastupdated DESC LIMIT 1',
+			[channel_genesis_hash, network_name]
+		);
+		return result[0] ? result[0].mode : 'NONE';
+	}
+
+	// async purgeData(network_name: string, channel_genesis_hash: string, blockCount: number) {
+	// 	console.log("calling purge")
+	// 	const count: any = await this.sql.getRowsBySQlCase(
+	// 		'select count(*) as count from blocks where channel_genesis_hash=$1 and network_name = $2',
+	// 		[channel_genesis_hash, network_name]
+	// 	);
+
+	// 	console.log(count)
+	// 	console.log(count.count)
+
+	// 	const rowCount: number = count.count;
+	// 	let rowsToDelete: number = 0;
+
+	// 	console.log(rowsToDelete)
+
+	// 	if (rowCount > blockCount) {
+	// 		rowsToDelete = rowCount - blockCount;
+	// 	}
+	// 	console.log(rowsToDelete)
+
+	// 	if (rowsToDelete > 0) {
+	// 		let blockfrom = await this.sql.updateBySql(
+	// 			`SELECT min(blocknum) as blockfrom FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`, [channel_genesis_hash, network_name]);
+	// 		let blockto = await this.sql.updateBySql(
+	// 			`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`, [channel_genesis_hash, network_name]);
+	// 		await this.sql.updateBySql(
+	// 			`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+	// 			[blockfrom[0].blockfrom, blockto[0].blockto - blockCount, channel_genesis_hash, network_name]
+	// 		);
+	// 		await this.sql.updateBySql(
+	// 			`DELETE FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+	// 			[blockfrom[0].blockfrom, blockto[0].blockto - blockCount, channel_genesis_hash, network_name]
+	// 		);
+
+	// 		return true;
+	// 	}
+	// 	return false;
+	// } imp
+
+	// async purgeData(network_name: string, channel_genesis_hash: string, blockCount: number) {
+	// 		console.log("calling purge")
+	// 		const count: any = await this.sql.getRowsBySQlCase(
+	// 			'select count(*) as count from blocks where channel_genesis_hash=$1 and network_name = $2',
+	// 			[channel_genesis_hash, network_name]
+	// 		);
+
+	// 		console.log(count)
+	// 		console.log(count.count)
+
+	// 		const rowCount: number = count.count;
+	// 		let rowsToDelete: number = 0;
+
+	// 		console.log(rowsToDelete)
+
+	// 		if (rowCount > blockCount) {
+	// 			rowsToDelete = rowCount - blockCount;
+	// 		}
+	// 		console.log(rowsToDelete)
+
+	// 		if (rowsToDelete > 0) {
+	// 			// Get the minimum and maximum block numbers within the specified criteria
+	// 			let blockfrom = await this.sql.updateBySql(
+	// 				`SELECT min(blocknum) as blockfrom FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
+	// 				[channel_genesis_hash, network_name]
+	// 			);
+	// 			let blockto = await this.sql.updateBySql(
+	// 				`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
+	// 				[channel_genesis_hash, network_name]
+	// 			);
+
+	// 			console.log(blockfrom)
+	// 			console.log(blockto)
+
+	// 			// Calculate the range of blocks to delete (oldest blocks)
+	// 			const blockFromToDelete = blockfrom[0].blockfrom;
+	// 			const blockToToDelete = blockfrom[0].blockfrom + blockCount;
+
+	// 			console.log("blockFromToDelete"+blockFromToDelete)
+	// 			console.log("blockToToDelete"+blockToToDelete)
+
+	// 			// Delete transactions and blocks within the calculated range
+	// 			await this.sql.updateBySql(
+	// 				`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+	// 				[blockFromToDelete, blockToToDelete, channel_genesis_hash, network_name]
+	// 			);
+	// 			await this.sql.updateBySql(
+	// 				`DELETE FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4`,
+	// 				[blockFromToDelete, blockToToDelete, channel_genesis_hash, network_name]
+	// 			);
+
+	// 			return true; // Indicates successful deletion
+	// 		}
+	// 		return false;
+	// 	}
+
+	async resetPurgeData(network_name: string, channel_genesis_hash: string) {
+		try {
+			const deleteResponse = await this.sql.updateBySql(
+				`delete from explorer_audit where network_name = $1 and channel_genesis_hash = $2`,
+				[network_name, channel_genesis_hash]
+			);
+			logger.info(
+				'All data deleted from explorer_audit table for network:',
+				network_name,
+				'and channel genesis hash:',
+				channel_genesis_hash
+			);
+		} catch (error) {
+			logger.error('Error deleting data from explorer_audit table:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 *
 	 * Returns the block by block number.
 	 *
 	 * @param {*} channel_genesis_hash
@@ -569,7 +863,11 @@ export class CRUDService {
 	 * @returns
 	 * @memberof CRUDService
 	 */
-	async getBlockByBlocknum(network_name: any, channel_genesis_hash: any, blockNo: any) {
+	async getBlockByBlocknum(
+		network_name: any,
+		channel_genesis_hash: any,
+		blockNo: any
+	) {
 		const sqlBlockTxList = `select a.* from  (
 				select (select c.name from channel c where c.channel_genesis_hash =$1 and c.network_name = $2) 
 					as channelname, blocks.blocknum,blocks.txcount ,blocks.datahash ,blocks.blockhash ,blocks.prehash,blocks.createdt, blocks.blksize, (
@@ -577,12 +875,13 @@ export class CRUDService {
 				   channel_genesis_hash = $1 and network_name = $2) from blocks where
 				   blocks.channel_genesis_hash =$1 and blocks.network_name = $2 and blocknum = $3)  a where  a.txhash IS NOT NULL`;
 
-		const row: any = await this.sql.getRowsBySQlCase(
-			sqlBlockTxList,
-			[channel_genesis_hash, network_name, blockNo]);
+		const row: any = await this.sql.getRowsBySQlCase(sqlBlockTxList, [
+			channel_genesis_hash,
+			network_name,
+			blockNo
+		]);
 		return row;
 	}
-
 }
 
 /**
