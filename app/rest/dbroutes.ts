@@ -145,17 +145,18 @@ export function dbroutes(router: Router, platform: Platform) {
 			}
 			if (channel_genesis_hash) {
 				const extReq = (req as unknown) as ExtRequest;
-				let data = await dbCrudService.getTxList(
-					extReq.network,
-					channel_genesis_hash,
-					blockNum,
-					txid,
-					from,
-					to,
-					orgs,
-					page,
-					size
-				);
+				let data = await dbCrudService
+					.getTxList(
+						extReq.network,
+						channel_genesis_hash,
+						blockNum,
+						txid,
+						from,
+						to,
+						orgs,
+						page,
+						size
+					)
 				if (data) {
 					return res.send({
 						status: 200,
@@ -252,7 +253,7 @@ export function dbroutes(router: Router, platform: Platform) {
 				req.query.to as string
 			);
 			const { page, size } = req.query;
-			if (channel_genesis_hash) {
+			if (channel_genesis_hash ) {
 				const extReq = (req as unknown) as ExtRequest;
 				let data = await dbCrudService.getBlockAndTxList(
 					extReq.network,
@@ -374,44 +375,64 @@ export function dbroutes(router: Router, platform: Platform) {
 		return requtil.invalidRequest(req, res);
 	});
 
-	router.post(
-		'/purgeData/blockcount/:channel_genesis_hash',
-		async (req, res) => {
-			const channel_genesis_hash = req.params.channel_genesis_hash;
-			const { noOfBlocks } = req.body; // Assuming to send the number of blocks to purge in the request body
-			if (channel_genesis_hash && !isNaN(noOfBlocks)) {
-				try {
-					const extReq = (req as unknown) as ExtRequest;
-
-					// purge data (remove the oldest N blocks)
-					await dbCrudService.deleteBlock(
-						extReq.network,
-						channel_genesis_hash,
-						noOfBlocks
-					);
-					return res.send({
-						status: 200,
-						message: `Successfully Purged all blocks, Except latest ${noOfBlocks}`
-					});
-				} catch (error) {
-					console.error('Error purging data:', error);
-					return res
-						.status(500)
-						.send({ status: 500, message: 'Internal Server Error' });
-				}
-			} else {
-				return requtil.invalidRequest(req, res);
+	/**
+	 * *
+	 * Purge data according to BlockCount
+	 * POST /purgeData/blockcount
+	 * curl -i 'http://<host>:<port>/purgeData/blockcount/<channel_genesis_hash>'
+	 * Response:
+	 * {"status": 200,"message": "Successfully Purged all blocks, Except latest 5 (noOfBlocks)"}
+	 */
+	router.post('/purgeData/blockcount/:channel_genesis_hash', async (req, res) => {
+		const channel_genesis_hash = req.params.channel_genesis_hash;
+		const { noOfBlocks } = req.body; // Assuming to send the number of blocks to purge in the request body
+		if (channel_genesis_hash && !isNaN(noOfBlocks)) {
+			try {
+				const extReq = (req as unknown) as ExtRequest;
+				// purge data (remove the oldest N blocks)
+				await dbCrudService.deleteBlock(
+					extReq.network,
+					channel_genesis_hash,
+					noOfBlocks
+				);
+				return res.send({
+					status: 200,
+					message: `Successfully Purged all blocks, Except latest ${noOfBlocks}`
+				});
+			} catch (error) {
+				console.error('Error purging data:', error);
+				return res
+					.status(500)
+					.send({ status: 500, message: 'Internal Server Error' });
 			}
+		} else {
+			return requtil.invalidRequest(req, res);
 		}
+	}
 	);
 
+	/**
+	 * *
+	 * Reset the purged data
+	 * POST /resetData
+	 * curl -i 'http://<host>:<port>/resetData/<channel_genesis_hash>'
+	 * Response:
+	 * {"status": 200,"message": "Successfully completed resetting all data"}
+	 */
 	router.post('/resetData/:channel_genesis_hash', async (req, res) => {
 		const channel_genesis_hash = req.params.channel_genesis_hash;
 		if (channel_genesis_hash) {
 			try {
 				const extReq = (req as unknown) as ExtRequest;
+				// Store chaincode information before resetting the data
+				const storedChaincodeInfo = await dbCrudService.storeChaincodeInfoBeforePurge(extReq.network, channel_genesis_hash);
+
 				// Resetting the data
 				await dbCrudService.resetPurgeData(extReq.network, channel_genesis_hash);
+
+				// Update chaincode information after resetting the data
+				await dbCrudService.updateChaincodeInfo(extReq.network, channel_genesis_hash, storedChaincodeInfo);
+
 				return res.send({
 					status: 200,
 					message: 'Successfully completed resetting all data'

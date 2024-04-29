@@ -103,36 +103,17 @@ export class CRUDService {
 		let sqlTxList = ` select t.creator_msp_id,t.txhash,t.type,t.chaincodename,t.createdt,channel.name as channelName from transactions as t
        inner join channel on t.channel_genesis_hash=channel.channel_genesis_hash and t.network_name = channel.network_name where  t.blockid >= $1 and t.id >= $2 and
 							t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `;
-		const values = [
-			blockNum,
-			txid,
-			channel_genesis_hash,
-			network_name,
-			from,
-			to,
-			page,
-			size
-		];
+		const values = [blockNum, txid, channel_genesis_hash, network_name, from, to, page, size];
 		if (page == 1) {
 			let sqlTxCount: string;
-			const filterValues = [
-				blockNum,
-				txid,
-				channel_genesis_hash,
-				network_name,
-				from,
-				to
-			];
+			const filterValues = [blockNum, txid, channel_genesis_hash, network_name, from, to];
 			sqlTxCount = ` select count(*) from transactions as t inner join channel on t.channel_genesis_hash=channel.channel_genesis_hash and t.network_name = channel.network_name
-			where t.blockid >= $1 and t.id >= $2 and t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `;
+			where t.blockid >= $1 and t.id >= $2 and t.channel_genesis_hash = $3 and t.network_name = $4 and t.createdt between $5 and $6 `
 			if (orgs && orgs.length > 0) {
 				sqlTxCount += ' and t.creator_msp_id = ANY($7)';
 				filterValues.push(orgs);
 			}
-			countOfTxns = await this.sql.getRowsCountBySQlQuery(
-				sqlTxCount,
-				filterValues
-			);
+			countOfTxns = await this.sql.getRowsCountBySQlQuery(sqlTxCount, filterValues)
 		}
 		if (orgs && orgs.length > 0) {
 			sqlTxList += ' and t.creator_msp_id = ANY($9)';
@@ -143,7 +124,7 @@ export class CRUDService {
 		let response = {
 			txnsData: txnsData,
 			noOfpages: Math.ceil(countOfTxns / size)
-		};
+		}
 
 		return response;
 	}
@@ -181,7 +162,7 @@ export class CRUDService {
 			byOrgs = ' and creator_msp_id = ANY($7)';
 		}
 		let sqlBlockTxList;
-		if (orgs == null || orgs.length == 0) {
+		if(orgs == null || orgs.length == 0 ) {
 			sqlBlockTxList = `SELECT a.* FROM  (
 								SELECT (SELECT c.name FROM channel c WHERE c.channel_genesis_hash =$1 AND c.network_name = $2) 
 									as channelname, blocks.blocknum,blocks.txcount ,blocks.datahash ,blocks.blockhash ,blocks.prehash,blocks.createdt, blocks.blksize, (
@@ -207,18 +188,18 @@ export class CRUDService {
 				filterValues.push(orgs);
 				byOrgs = ' and creator_msp_id = ANY($5)';
 			}
-			if (orgs == null || orgs.length == 0) {
+			if(orgs == null || orgs.length == 0 ) {
 				sqlBlockTxCount = `SELECT COUNT(DISTINCT blocks.blocknum) FROM blocks
 										JOIN transactions ON blocks.blocknum = transactions.blockid 
 										WHERE blockid = blocks.blocknum ${byOrgs} AND 
 										blocknum >= 0 AND blocks.channel_genesis_hash = $1 AND blocks.network_name = $2 AND 
-										blocks.createdt between $3 AND $4`;
+										blocks.createdt between $3 AND $4`
 			} else {
 				sqlBlockTxCount = `SELECT COUNT(DISTINCT blocks.blocknum) FROM blocks
 										JOIN transactions ON blocks.blocknum = transactions.blockid 
 										WHERE blockid = blocks.blocknum ${byOrgs}  
 										AND blocks.channel_genesis_hash = $1 and blocks.network_name = $2 AND blocks.createdt between $3 AND $4
-										AND transactions.creator_msp_id IS NOT NULL AND transactions.creator_msp_id != ' ' AND length(creator_msp_id) > 0`;
+										AND transactions.creator_msp_id IS NOT NULL AND transactions.creator_msp_id != ' ' AND length(creator_msp_id) > 0`
 			}
 			countOfBlocks = await this.sql.getRowsCountBySQlQuery(
 				sqlBlockTxCount,
@@ -345,12 +326,7 @@ export class CRUDService {
 			await this.sql.saveRow('transactions', transaction);
 			await this.sql.updateBySql(
 				'update chaincodes set txcount =txcount+1 where channel_genesis_hash=$1 and network_name = $2 and name=$3 and version=$4',
-				[
-					transaction.channel_genesis_hash,
-					network_name,
-					transaction.chaincodename,
-					chaincodeversion
-				]
+				[transaction.channel_genesis_hash, network_name, transaction.chaincodename, chaincodeversion]
 			);
 			await this.sql.updateBySql(
 				'update channel set trans =trans+1 where channel_genesis_hash=$1 and network_name = $2 ',
@@ -535,47 +511,16 @@ export class CRUDService {
 	 * @returns
 	 * @memberof CRUDService
 	 */
-	// async getChannelsInfo(network_name) {
-	// 	const channels = await this.sql.getRowsBySQlNoCondition(
-	// 		` SELECT c.id as id, c.name as channelName, c.blocks as blocks, c.channel_genesis_hash as channel_genesis_hash,
-	// 		c.trans as transactions, c.createdt as createdat, c.channel_hash as channel_hash, MAX(blocks.createdt)
-	// 		as latestDate FROM channel c
-	// 		INNER JOIN blocks ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = blocks.network_name
-	// 		INNER JOIN peer_ref_channel pc ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = pc.network_name
-	// 		WHERE c.network_name = $1
-	// 		GROUP BY c.id, c.name, c.blocks, c.trans, c.createdt, c.channel_hash, c.channel_genesis_hash
-	// 		ORDER BY c.name `,
-	// 		[network_name]
-	// 	);
-	// 	return channels;
-	// }
 	async getChannelsInfo(network_name) {
 		const channels = await this.sql.getRowsBySQlNoCondition(
-			` SELECT c.id AS id,
-			c.name AS channelName,
-			COALESCE(SUM(b.block_count), 0) AS blocks,
-			COALESCE(SUM(t.transaction_count), 0) AS transactions,
-			c.createdt AS createdat,
-			c.channel_genesis_hash AS channel_genesis_hash,
-			MAX(b.createdt) AS latestDate
-	 FROM channel c
-	 LEFT JOIN (
-		 SELECT channel_genesis_hash,
-				COUNT(*) AS block_count,
-				MAX(createdt) AS createdt
-		 FROM blocks
-		 GROUP BY channel_genesis_hash
-	 ) AS b ON c.channel_genesis_hash = b.channel_genesis_hash
-	 LEFT JOIN (
-		 SELECT channel_genesis_hash,
-				COUNT(*) AS transaction_count
-		 FROM transactions
-		 GROUP BY channel_genesis_hash
-	 ) AS t ON c.channel_genesis_hash = t.channel_genesis_hash
-	 WHERE c.network_name = $1
-	 GROUP BY c.id, c.name, c.createdt, c.channel_genesis_hash
-	 ORDER BY c.name;
-	  `,
+			` SELECT c.id as id, c.name as channelName, c.blocks as blocks, c.channel_genesis_hash as channel_genesis_hash,
+			c.trans as transactions, c.createdt as createdat, c.channel_hash as channel_hash, MAX(blocks.createdt) 
+			as latestDate FROM channel c 
+			INNER JOIN blocks ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = blocks.network_name 
+			INNER JOIN peer_ref_channel pc ON c.channel_genesis_hash = blocks.channel_genesis_hash AND c.network_name = pc.network_name 
+			WHERE c.network_name = $1 
+			GROUP BY c.id, c.name, c.blocks, c.trans, c.createdt, c.channel_hash, c.channel_genesis_hash 
+			ORDER BY c.name `,
 			[network_name]
 		);
 		return channels;
@@ -668,6 +613,29 @@ export class CRUDService {
 				`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
 				[channel_genesis_hash, network_name]
 			);
+
+			// Count the number of transactions to be deleted
+			const transactionsCountToDelete: any = await this.sql.getRowsBySQlCase(
+				'SELECT count(*) AS transactioncount FROM transactions WHERE blockid >= $1 AND blockid <= $2 AND channel_genesis_hash = $3 AND network_name = $4',
+				[
+					blockfrom[0].blockfrom,
+					blockto[0].blockto - blockCount,
+					channel_genesis_hash,
+					network_name
+				]
+			);
+
+			// Count the number of blocks to be deleted
+			const blocksCountToDelete: any = await this.sql.getRowsBySQlCase(
+				'SELECT count(*) AS blockcount FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4',
+				[
+					blockfrom[0].blockfrom,
+					blockto[0].blockto - blockCount,
+					channel_genesis_hash,
+					network_name
+				]
+			);
+
 			await this.sql.updateBySql(
 				`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
 				[
@@ -686,6 +654,17 @@ export class CRUDService {
 					network_name
 				]
 			);
+
+			// Calculate the number of blocks and transactions to be deleted from channel table 
+			const channelBlocksCountToDelete = blocksCountToDelete.blockcount;
+			const channelTransCountToDelete = transactionsCountToDelete.transactioncount;
+	
+			// Update the blocks and trans columns in the channel table
+			await this.sql.updateBySql(
+				`UPDATE channel SET blocks = blocks - $1, trans = trans - $2 WHERE channel_genesis_hash = $3 AND network_name = $4`,
+				[channelBlocksCountToDelete, channelTransCountToDelete, channel_genesis_hash, network_name]
+			);
+
 			await this.explorerTableUpdation(
 				blockfrom[0].blockfrom,
 				blockto[0].blockto - blockCount,
@@ -741,101 +720,57 @@ export class CRUDService {
 		return result[0] ? result[0].mode : 'NONE';
 	}
 
-	// async purgeData(network_name: string, channel_genesis_hash: string, blockCount: number) {
-	// 	console.log("calling purge")
-	// 	const count: any = await this.sql.getRowsBySQlCase(
-	// 		'select count(*) as count from blocks where channel_genesis_hash=$1 and network_name = $2',
-	// 		[channel_genesis_hash, network_name]
-	// 	);
+	async storeChaincodeInfoBeforePurge(network_name, channel_genesis_hash) {
+		try {
+			// Query chaincode information from the database
+			const chaincodes = await this.sql.getRowsBySQlNoCondition(
+				`SELECT name, version, channel_genesis_hash, txcount FROM chaincodes WHERE network_name = $1 and channel_genesis_hash = $2`,
+				[network_name, channel_genesis_hash]
+			);
+	
+			// Store the chaincode information in an array
+			const chaincodeInfo = [];
+			for (const chaincode of chaincodes) {
+				chaincodeInfo.push({
+					name: chaincode.name,
+					version: chaincode.version,
+					channel_genesis_hash: chaincode.channel_genesis_hash,
+					txcount: chaincode.txcount
+				});
+			}
+	
+			// Query block and transaction counts and store them
+			const blockCountBeforeReset: any = await this.sql.getRowsBySQlCase(
+				`SELECT COUNT(*) FROM blocks WHERE channel_genesis_hash = $1 AND network_name = $2`,
+				[channel_genesis_hash, network_name]
+			);
+			const transactionCountBeforeReset: any = await this.sql.getRowsBySQlCase(
+				`SELECT COUNT(*) FROM transactions WHERE channel_genesis_hash = $1 AND network_name = $2`,
+				[channel_genesis_hash, network_name]
+			);
 
-	// 	console.log(count)
-	// 	console.log(count.count)
-
-	// 	const rowCount: number = count.count;
-	// 	let rowsToDelete: number = 0;
-
-	// 	console.log(rowsToDelete)
-
-	// 	if (rowCount > blockCount) {
-	// 		rowsToDelete = rowCount - blockCount;
-	// 	}
-	// 	console.log(rowsToDelete)
-
-	// 	if (rowsToDelete > 0) {
-	// 		let blockfrom = await this.sql.updateBySql(
-	// 			`SELECT min(blocknum) as blockfrom FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`, [channel_genesis_hash, network_name]);
-	// 		let blockto = await this.sql.updateBySql(
-	// 			`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`, [channel_genesis_hash, network_name]);
-	// 		await this.sql.updateBySql(
-	// 			`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
-	// 			[blockfrom[0].blockfrom, blockto[0].blockto - blockCount, channel_genesis_hash, network_name]
-	// 		);
-	// 		await this.sql.updateBySql(
-	// 			`DELETE FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4`,
-	// 			[blockfrom[0].blockfrom, blockto[0].blockto - blockCount, channel_genesis_hash, network_name]
-	// 		);
-
-	// 		return true;
-	// 	}
-	// 	return false;
-	// } imp
-
-	// async purgeData(network_name: string, channel_genesis_hash: string, blockCount: number) {
-	// 		console.log("calling purge")
-	// 		const count: any = await this.sql.getRowsBySQlCase(
-	// 			'select count(*) as count from blocks where channel_genesis_hash=$1 and network_name = $2',
-	// 			[channel_genesis_hash, network_name]
-	// 		);
-
-	// 		console.log(count)
-	// 		console.log(count.count)
-
-	// 		const rowCount: number = count.count;
-	// 		let rowsToDelete: number = 0;
-
-	// 		console.log(rowsToDelete)
-
-	// 		if (rowCount > blockCount) {
-	// 			rowsToDelete = rowCount - blockCount;
-	// 		}
-	// 		console.log(rowsToDelete)
-
-	// 		if (rowsToDelete > 0) {
-	// 			// Get the minimum and maximum block numbers within the specified criteria
-	// 			let blockfrom = await this.sql.updateBySql(
-	// 				`SELECT min(blocknum) as blockfrom FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
-	// 				[channel_genesis_hash, network_name]
-	// 			);
-	// 			let blockto = await this.sql.updateBySql(
-	// 				`SELECT max(blocknum) as blockto FROM blocks WHERE channel_genesis_hash=$1 and network_name = $2`,
-	// 				[channel_genesis_hash, network_name]
-	// 			);
-
-	// 			console.log(blockfrom)
-	// 			console.log(blockto)
-
-	// 			// Calculate the range of blocks to delete (oldest blocks)
-	// 			const blockFromToDelete = blockfrom[0].blockfrom;
-	// 			const blockToToDelete = blockfrom[0].blockfrom + blockCount;
-
-	// 			console.log("blockFromToDelete"+blockFromToDelete)
-	// 			console.log("blockToToDelete"+blockToToDelete)
-
-	// 			// Delete transactions and blocks within the calculated range
-	// 			await this.sql.updateBySql(
-	// 				`DELETE FROM transactions WHERE blockid>= $1 and blockid<=$2 and channel_genesis_hash=$3 and network_name = $4`,
-	// 				[blockFromToDelete, blockToToDelete, channel_genesis_hash, network_name]
-	// 			);
-	// 			await this.sql.updateBySql(
-	// 				`DELETE FROM blocks WHERE blocknum>= $1 and blocknum<=$2 and channel_genesis_hash=$3 and network_name = $4`,
-	// 				[blockFromToDelete, blockToToDelete, channel_genesis_hash, network_name]
-	// 			);
-
-	// 			return true; // Indicates successful deletion
-	// 		}
-	// 		return false;
-	// 	}
-
+			// Return the stored chaincode information and counts
+			return {
+				chaincodeInfo: chaincodeInfo,
+				blockCountBeforeReset: blockCountBeforeReset,
+				transactionCountBeforeReset: transactionCountBeforeReset
+			};
+		} catch (error) {
+			// Handle errors
+			console.error('Error storing chaincode information:', error);
+			throw error;
+		}
+	}
+	
+	/**
+	 *
+	 * resetting the purge data
+	 *
+	 * @param {*} network_name
+	 * @param {*} channel_genesis_hash
+	 * @returns
+	 * @memberof CRUDService
+	 */
 	async resetPurgeData(network_name: string, channel_genesis_hash: string) {
 		try {
 			const deleteResponse = await this.sql.updateBySql(
@@ -856,6 +791,57 @@ export class CRUDService {
 
 	/**
 	 *
+	 * updates chaincodeInfo
+	 *
+	 * @param {*} network_name
+	 * @param {*} channel_genesis_hash
+	 * @param {*} storedChaincodeInfo
+	 * @returns
+	 * @memberof CRUDService
+	 */
+	async updateChaincodeInfo(network_name, channel_genesis_hash, storedChaincodeInfo) {
+		try {
+			let blockCountBefore = parseInt(storedChaincodeInfo.blockCountBeforeReset.count);
+			let transactionCountBefore = parseInt(storedChaincodeInfo.transactionCountBeforeReset.count);
+			
+			// Wait until both block count and transaction count increase
+			while (true) {
+				// Query block and transaction counts and store them
+				const blockCountAfterReset: any = await this.sql.getRowsBySQlCase(
+					`SELECT COUNT(*) FROM blocks WHERE channel_genesis_hash = $1 AND network_name = $2`,
+					[channel_genesis_hash, network_name]
+				);
+				const transactionCountAfterReset: any = await this.sql.getRowsBySQlCase(
+					`SELECT COUNT(*) FROM transactions WHERE channel_genesis_hash = $1 AND network_name = $2`,
+					[channel_genesis_hash, network_name]
+				);
+
+				let blockCountAfter = parseInt(blockCountAfterReset.count);
+				let transactionCountAfter = parseInt(transactionCountAfterReset.count);
+	
+				if (blockCountAfter > blockCountBefore && transactionCountAfter > transactionCountBefore) {
+					break; // Exit the loop if both counts have increased
+				} else {
+					await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for 1 second before checking again
+				}
+			}
+	
+			// Update chaincode information in the database
+			for (const chaincode of storedChaincodeInfo.chaincodeInfo) {
+				await this.sql.updateBySql(
+					`UPDATE chaincodes SET txcount = $1 WHERE name = $2 AND version = $3 AND network_name = $4 AND channel_genesis_hash = $5`,
+					[chaincode.txcount, chaincode.name, chaincode.version, network_name, chaincode.channel_genesis_hash]
+				);
+			}
+		} catch (error) {
+			// Handle errors
+			console.error('Error updating chaincode information:', error);
+			throw error;
+		}
+	}
+	
+	/**
+	 *
 	 * Returns the block by block number.
 	 *
 	 * @param {*} channel_genesis_hash
@@ -863,11 +849,7 @@ export class CRUDService {
 	 * @returns
 	 * @memberof CRUDService
 	 */
-	async getBlockByBlocknum(
-		network_name: any,
-		channel_genesis_hash: any,
-		blockNo: any
-	) {
+	async getBlockByBlocknum(network_name: any, channel_genesis_hash: any, blockNo: any) {
 		const sqlBlockTxList = `select a.* from  (
 				select (select c.name from channel c where c.channel_genesis_hash =$1 and c.network_name = $2) 
 					as channelname, blocks.blocknum,blocks.txcount ,blocks.datahash ,blocks.blockhash ,blocks.prehash,blocks.createdt, blocks.blksize, (
@@ -875,13 +857,12 @@ export class CRUDService {
 				   channel_genesis_hash = $1 and network_name = $2) from blocks where
 				   blocks.channel_genesis_hash =$1 and blocks.network_name = $2 and blocknum = $3)  a where  a.txhash IS NOT NULL`;
 
-		const row: any = await this.sql.getRowsBySQlCase(sqlBlockTxList, [
-			channel_genesis_hash,
-			network_name,
-			blockNo
-		]);
+		const row: any = await this.sql.getRowsBySQlCase(
+			sqlBlockTxList,
+			[channel_genesis_hash, network_name, blockNo]);
 		return row;
 	}
+
 }
 
 /**

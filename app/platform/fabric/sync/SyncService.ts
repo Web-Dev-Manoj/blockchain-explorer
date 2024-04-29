@@ -372,126 +372,6 @@ export class SyncServices {
 	 * @param {*} channel_name
 	 * @memberof SyncServices
 	 */
-	// async syncBlocks(client, channel_name, noDiscovery) {
-	// 	const network_id = client.getNetworkId();
-	// 	const synch_key = `${network_id}_${channel_name}`;
-
-	// 	// Check if block synchronization is already in process
-	// 	if (this.synchInProcess.includes(synch_key)) {
-	// 		logger.info(`syncBlocks: Block sync in process for >> ${synch_key}`);
-	// 		return;
-	// 	}
-	// 	try {
-	// 		// Get channel information from ledger
-	// 		const channelInfo = await client.fabricGateway.queryChainInfo(channel_name);
-	// 		if (!channelInfo) {
-	// 			logger.info(
-	// 				`syncBlocks: Failed to retrieve channelInfo >> ${channel_name}`
-	// 			);
-	// 			return;
-	// 		}
-
-	// 		// Getting necessary information from configuration file
-	// 		const bootMode = network_configs[network_id].bootMode.toUpperCase();
-	// 		const channel_genesis_hash = client.getChannelGenHash(channel_name);
-	// 		const latestBlockHeight = parseInt(channelInfo.height.low) - 1;
-
-	// 		const latestPurgeMode = await this.persistence.getCrudService().getLatestPurgeMode(
-	// 			client.getChannelGenHash(channel_name),
-	// 			client.getNetworkId()
-	// 		);
-
-	// 		console.log(latestPurgeMode);
-
-	// 		// Get the value of noOfBlocks from configuration file
-	// 		let noOfBlocks = 0;
-
-	// 		if (bootMode === boot_modes[0]) {
-	// 			// Sync all available blocks
-	// 			noOfBlocks = latestBlockHeight + 1;
-	// 		} else if (bootMode === boot_modes[1]) {
-	// 			// Get the value of noOfBlocks from configuration file
-	// 			noOfBlocks = parseInt(network_configs[network_id].noOfBlocks);
-
-	// 			if (isNaN(noOfBlocks)) {
-	// 				logger.error(
-	// 					'Invalid noOfBlocks configuration, please either provide in numeric eg: (1) or ("1")'
-	// 				);
-	// 				return;
-	// 			}
-	// 		}
-
-	// 		// Calculate the starting block height for sync
-	// 		const startingBlockHeight = Math.max(0, latestBlockHeight - noOfBlocks + 1);
-
-	// 		// Syncing Details
-	// 		logger.info(
-	// 			`Syncing blocks from ${startingBlockHeight} to ${latestBlockHeight}`
-	// 		);
-
-	// 		// Load the latest blocks as per the configuration
-	// 		for (
-	// 			let blockHeight = latestBlockHeight;
-	// 			blockHeight >= startingBlockHeight;
-	// 			blockHeight--
-	// 		) {
-	// 			try {
-	// 				const [block, isBlockAvailable] = await Promise.all([
-	// 					client.fabricGateway.queryBlock(channel_name, blockHeight),
-	// 					this.persistence
-	// 						.getCrudService()
-	// 						.isBlockAvailableInDB(channel_genesis_hash, blockHeight)
-	// 				]);
-
-	// 				if (block && !isBlockAvailable) {
-	// 					await this.processBlockEvent(client, block, noDiscovery);
-	// 				}
-	// 				logger.info(`Synced block #${blockHeight}`);
-	// 			} catch {
-	// 				logger.error(`Failed to process Block # ${blockHeight}`);
-	// 			}
-	// 		}
-
-	// 		const missingBlocks = await this.persistence
-	// 			.getMetricService()
-	// 			.findMissingBlockNumber(
-	// 				network_id,
-	// 				channel_genesis_hash,
-	// 				latestBlockHeight
-	// 			);
-
-	// 		if (missingBlocks) {
-	// 			// Filter missing blocks to start syncing from 'startingBlockHeight'
-	// 			const missingBlocksToSync = missingBlocks.filter(
-	// 				missingBlock => missingBlock.missing_id >= startingBlockHeight
-	// 			);
-	// 			for (const missingBlock of missingBlocksToSync) {
-	// 				try {
-	// 					const block = await client.fabricGateway.queryBlock(
-	// 						channel_name,
-	// 						missingBlock.missing_id
-	// 					);
-	// 					if (block) {
-	// 						await this.processBlockEvent(client, block, noDiscovery);
-	// 					}
-	// 					logger.info(`Synced missing block #${missingBlock.missing_id}`);
-	// 				} catch {
-	// 					logger.error(
-	// 						`Failed to process Missing Block # ${missingBlock.missing_id}`
-	// 					);
-	// 				}
-	// 			}
-	// 		} else {
-	// 			logger.debug('Missing blocks not found for %s', channel_name);
-	// 		}
-	// 		const index = this.synchInProcess.indexOf(synch_key);
-	// 		this.synchInProcess.splice(index, 1);
-	// 		logger.info(`syncBlocks: Finish >> ${synch_key}`);
-	// 	} catch (error) {
-	// 		logger.error(`Error in syncBlocks: ${error}`);
-	// 	}
-	// }
-
 	async syncBlocks(client, channel_name, noDiscovery) {
 		const network_id = client.getNetworkId();
 		const synch_key = `${network_id}_${channel_name}`;
@@ -501,7 +381,6 @@ export class SyncServices {
 			logger.info(`syncBlocks: Block sync in process for >> ${synch_key}`);
 			return;
 		}
-
 		try {
 			// Get channel information from ledger
 			const channelInfo = await client.fabricGateway.queryChainInfo(channel_name);
@@ -512,7 +391,7 @@ export class SyncServices {
 				return;
 			}
 
-			// Getting necessary information from the configuration file
+			// Getting necessary information from configuration file
 			const bootMode = network_configs[network_id].bootMode.toUpperCase();
 			const channel_genesis_hash = client.getChannelGenHash(channel_name);
 			const latestBlockHeight = parseInt(channelInfo.height.low) - 1;
@@ -524,8 +403,6 @@ export class SyncServices {
 					client.getChannelGenHash(channel_name),
 					client.getNetworkId()
 				);
-
-			console.log(latestPurgeMode);
 
 			// Get the value of noOfBlocks from the configuration file
 			let noOfBlocks = 0;
@@ -603,14 +480,12 @@ export class SyncServices {
 				const missingBlocksToSync = missingBlocks.filter(
 					missingBlock => missingBlock.missing_id >= startingBlockHeight
 				);
-
 				for (const missingBlock of missingBlocksToSync) {
 					try {
 						const block = await client.fabricGateway.queryBlock(
 							channel_name,
 							missingBlock.missing_id
 						);
-
 						if (block) {
 							// Check the purge mode and sync the missing block accordingly
 							if (latestPurgeMode === 'NONE') {
@@ -626,7 +501,6 @@ export class SyncServices {
 								);
 							}
 						}
-
 						logger.info(`Synced missing block #${missingBlock.missing_id}`);
 					} catch {
 						logger.error(
@@ -637,7 +511,6 @@ export class SyncServices {
 			} else {
 				logger.debug('Missing blocks not found for %s', channel_name);
 			}
-
 			const index = this.synchInProcess.indexOf(synch_key);
 			this.synchInProcess.splice(index, 1);
 			logger.info(`syncBlocks: Finish >> ${synch_key}`);
